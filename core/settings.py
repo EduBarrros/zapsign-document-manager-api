@@ -23,6 +23,8 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     'rest_framework',
+    'rest_framework.authtoken',
+    'drf_spectacular',
 ]
 
 LOCAL_APPS = [
@@ -100,6 +102,13 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'ZapSign Document Manager API',
+    'DESCRIPTION': 'RESTful API for managing documents and signers with ZapSign integration and AI-powered content analysis.',
+    'VERSION': '1.0.0',
 }
 
 ZAPSIGN_API_URL = os.getenv('ZAPSIGN_API_URL', 'https://sandbox.api.zapsign.com.br/api/v1')
