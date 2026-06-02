@@ -12,6 +12,8 @@ class DocumentSerializer(serializers.ModelSerializer):
             'name',
             'status',
             'open_id',
+            'token',
+            'url_pdf',
             'external_id',
             'created_at',
             'company',
@@ -19,7 +21,6 @@ class DocumentSerializer(serializers.ModelSerializer):
             'ai_missing_topics',
             'ai_insights',
             'ai_summary',
-            'created_at',
             'last_updated_at',
         ]
         read_only_fields = [
@@ -35,13 +36,14 @@ class DocumentSerializer(serializers.ModelSerializer):
         ]
 
 class DocumentCreateSerializer(serializers.ModelSerializer):
-    signers = SignerSerializer(many=True, read_only=True)
+    signers = SignerSerializer(many=True)
 
     class Meta: 
         model = Document
         fields = [
             'name',
-            'created_at',
+            'created_by',
             'company',
+            'url_pdf',
             'signers',
         ]

@@ -13,6 +13,7 @@ class Signer(models.Model):
     token = models.CharField(max_length=255, blank=True, null=True)
     external_id = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    sign_url = models.URLField(blank=True, null=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
