@@ -2,17 +2,30 @@ from django.utils import timezone
 from apps.integrations.zapsign import ZapSignClient
 from .models import Document
 from apps.signers.models import Signer
+from apps.integrations.ai_analysis import GeminiClient
+from apps.integrations.pdf_extractor import PDFExtractor
 
 class DocumentService:
     def create_document_with_signers(self, data: dict, company) -> Document:
         signers_data = data.pop('signers', [])
         url_pdf = data.get('url_pdf', None)
 
+        try:
+            document_content = PDFExtractor.extract_from_url(
+                url_pdf
+            )
+        except Exception:
+            document_content = f"""
+            Nome do documento: {data['name']}
+            Empresa: {company.name}
+            """
+
         document = Document.objects.create(
             name=data['name'],
             created_by=data['created_by'],
             company=company,
             url_pdf=url_pdf,
+            extracted_text=document_content
         )
 
         try:
@@ -42,12 +55,34 @@ class DocumentService:
                     status=zapsign_signer.get('status', 'pending'),
                     sign_url=zapsign_signer.get('sign_url'),
                 )
+
+            self._analyze_document_with_ai(document)
         
         except Exception as exception:
             document.delete()
             raise exception
 
         return document
+    
+    def _analyze_document_with_ai(self, document: Document) -> None:
+        try:
+            gemini = GeminiClient()
+
+            analysis_result = gemini.analyze_document(
+                document_content = document.extracted_text
+            )
+
+            document.ai_summary = analysis_result.get('summary', '')
+            document.ai_missing_topics = analysis_result.get('missing_topics', [])
+            document.ai_insights = analysis_result.get('insights', '')
+            document.save()
+
+        except Exception as exception:
+            document.ai_summary = 'Analysis unavailable'
+            document.ai_missing_topics = []
+            document.ai_insights = 'Analysis unavailable'
+            document.save()
+
 
     def delete_document(self, document: Document) -> None:
         document.deleted_at = timezone.now()

@@ -1,5 +1,4 @@
 import requests
-import logging
 from django.conf import settings
 
 
@@ -9,8 +8,6 @@ class ZapSignClient:
         self.base_url = settings.ZAPSIGN_API_URL
 
     def create_document(self, name: str, url_pdf:str, signers: list) -> dict:
-        print("entrou")
-        
         payload = {
             "name": name,
             "url_pdf": url_pdf,
@@ -22,11 +19,6 @@ class ZapSignClient:
                 for signer in signers
             ]
         }
-
-        logging.warning(f"payload - {payload}")
-
-        print("PAYLOAD ENVIADO:", payload)
-        print("TOKEN:", self.api_token)
 
         response = requests.post(
             f"{self.base_url}/docs/",

@@ -3,7 +3,10 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from .models import Signer
 from .serializers import SignerSerializer
+from drf_spectacular.utils import extend_schema
 
+
+@extend_schema(tags=["Signers"])
 class SignerViewSet(viewsets.ModelViewSet):
     serializer_class = SignerSerializer
 

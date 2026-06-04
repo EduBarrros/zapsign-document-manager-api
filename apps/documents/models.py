@@ -21,6 +21,7 @@ class Document(models.Model):
     ai_summary = models.TextField(blank=True, null=True)
     ai_missing_topics = models.JSONField(blank=True, null=True)
     ai_insights = models.TextField(blank=True, null=True)
+    extracted_text = models.TextField(null=True,blank=True)
 
     class Meta:
         verbose_name = 'Document'
