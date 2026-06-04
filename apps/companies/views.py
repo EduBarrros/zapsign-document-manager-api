@@ -3,7 +3,9 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from .models import Company
 from .serializers import CompanySerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=["Companies"])
 class CompanyViewSet(viewsets.ModelViewSet):
     serializer_class = CompanySerializer
 

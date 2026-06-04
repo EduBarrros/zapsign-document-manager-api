@@ -112,4 +112,4 @@ SPECTACULAR_SETTINGS = {
 }
 
 ZAPSIGN_API_URL = os.getenv('ZAPSIGN_API_URL', 'https://sandbox.api.zapsign.com.br/api/v1')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+GEMINI_KEY = os.getenv("GEMINI_KEY")

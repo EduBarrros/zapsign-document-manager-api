@@ -4,7 +4,10 @@ from rest_framework.response import Response
 from .models import Document
 from .serializers import DocumentSerializer, DocumentCreateSerializer
 from .services import DocumentService
+from drf_spectacular.utils import extend_schema
 
+
+@extend_schema(tags=["Documents"])
 class DocumentViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentSerializer
 
