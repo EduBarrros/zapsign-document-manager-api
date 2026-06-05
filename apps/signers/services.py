@@ -1,10 +1,10 @@
 from django.utils import timezone
-from .models import Company
+from .models import Signer
 
 
-class CompanyService:
+class SignerService:
     @staticmethod
-    def soft_delete(company: Company) -> Company:
+    def soft_delete(company: Signer) -> Signer:
         company.deleted_at = timezone.now()
         company.save(update_fields=["deleted_at"])
         return company

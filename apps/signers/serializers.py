@@ -1,7 +1,13 @@
 from rest_framework import serializers
 from .models import Signer
 
-class SignerSerializer(serializers.ModelSerializer):
+
+class SignerRequestSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=255)
+    email = serializers.EmailField()
+
+
+class SignerResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Signer
         fields = [
@@ -9,16 +15,8 @@ class SignerSerializer(serializers.ModelSerializer):
             'name',
             'email',
             'token',
+            'external_id',
+            'status',
             'sign_url',
-            'external_id',
-            'status',
         ]
-        read_only_fields = [
-            'status',
-            'external_id',
-            'token',
-            'sign_url'
-        ]
-        extra_kwargs = {
-            'document': {'required': False}
-        }
+        read_only_fields = fields

@@ -4,11 +4,12 @@ from .models import Document
 from apps.signers.models import Signer
 from apps.integrations.ai_analysis import GeminiClient
 from apps.integrations.pdf_extractor import PDFExtractor
+from django.db import transaction
 
 class DocumentService:
     def create_document_with_signers(self, data: dict, company) -> Document:
         signers_data = data.pop('signers', [])
-        url_pdf = data.get('url_pdf', None)
+        url_pdf = data.pop('url_pdf', None)
 
         try:
             document_content = PDFExtractor.extract_from_url(
@@ -20,15 +21,15 @@ class DocumentService:
             Empresa: {company.name}
             """
 
-        document = Document.objects.create(
-            name=data['name'],
-            created_by=data['created_by'],
-            company=company,
-            url_pdf=url_pdf,
-            extracted_text=document_content
-        )
+        with transaction.atomic():
+            document = Document.objects.create(
+                name=data['name'],
+                created_by=data['created_by'],
+                company=company,
+                url_pdf=url_pdf,
+                extracted_text=document_content
+            )
 
-        try:
             client = ZapSignClient(api_token=company.api_token)
             
             zapsign_create_document_response = client.create_document(
@@ -56,12 +57,7 @@ class DocumentService:
                     sign_url=zapsign_signer.get('sign_url'),
                 )
 
-            self._analyze_document_with_ai(document)
-        
-        except Exception as exception:
-            document.delete()
-            raise exception
-
+        self._analyze_document_with_ai(document)
         return document
     
     def _analyze_document_with_ai(self, document: Document) -> None:
