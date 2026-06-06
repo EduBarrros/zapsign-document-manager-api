@@ -7,7 +7,7 @@ class Signer(models.Model):
         SIGNED = 'signed', 'Signed'
         REJECTED = 'rejected', 'Rejected'
 
-    document = models.ForeignKey(Document, on_delete=models.DO_NOTHING, related_name='signers')
+    document = models.ForeignKey(Document, on_delete=models.PROTECT, related_name='signers')
     name = models.CharField(max_length=255)
     email = models.EmailField()
     token = models.CharField(max_length=255, blank=True, null=True)

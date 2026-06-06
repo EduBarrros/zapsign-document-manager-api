@@ -3,6 +3,7 @@ import logging
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
+from core.response import api_response
 from .serializers import (
     DocumentResponseSerializer,
     DocumentCreateSerializer
@@ -47,9 +48,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 company=company,
             )
 
-            return Response(
-                DocumentResponseSerializer(document).data,
-                status=status.HTTP_201_CREATED
+            return api_response(
+                data=DocumentResponseSerializer(document).data,
+                status=status.HTTP_201_CREATED,
             )
 
         except Exception as exception:
@@ -60,9 +61,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 serializer.validated_data.get('name'),
                 exc_info=True,
             )
-            return Response(
-                {'error': str(exception)},
-                status=status.HTTP_502_BAD_GATEWAY
+            return api_response(
+                error=str(exception),
+                error_code='ZAPSIGN_ERROR',
+                status=status.HTTP_502_BAD_GATEWAY,
             )
 
     def destroy(self, request, *args, **kwargs):
