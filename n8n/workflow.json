@@ -1,0 +1,189 @@
+{
+  "name": "ZapSign - Processador de Eventos",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Receber Evento ZapSign",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zapsign-events",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "zapsign-events-webhook"
+    },
+    {
+      "id": "2",
+      "name": "Tipo de Evento",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [460, 300],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "document.created",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Documento Criado"
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "document.signed",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Documento Assinado"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3",
+      "name": "Buscar Detalhes do Documento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 180],
+      "parameters": {
+        "method": "GET",
+        "url": "=http://localhost:8000/api/v1/documents/{{ $json.document_id }}/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Token {{ $credentials.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zapsign-api-token",
+          "name": "ZapSign API Token"
+        }
+      }
+    },
+    {
+      "id": "4",
+      "name": "Acionar Re-análise de IA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 420],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:8000/api/v1/documents/{{ $json.document_id }}/analyze/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Token {{ $credentials.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zapsign-api-token",
+          "name": "ZapSign API Token"
+        }
+      }
+    },
+    {
+      "id": "5",
+      "name": "Notificar por Email - Documento Criado",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [900, 180],
+      "parameters": {
+        "fromEmail": "noreply@suaempresa.com",
+        "toEmail": "={{ $json.data.signers.map(s => s.email).join(',') }}",
+        "subject": "=Documento \"{{ $json.data.name }}\" aguarda sua assinatura",
+        "emailType": "html",
+        "html": "=<h2>Olá!</h2><p>O documento <strong>{{ $json.data.name }}</strong> foi criado e está aguardando sua assinatura.</p><p><strong>Criado por:</strong> {{ $json.data.created_by }}</p><p><strong>Status:</strong> {{ $json.data.status }}</p><p>Acesse a plataforma para visualizar e assinar o documento.</p><br><p>Atenciosamente,<br>Equipe ZapSign</p>",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "smtp-credentials",
+          "name": "SMTP"
+        }
+      }
+    },
+    {
+      "id": "6",
+      "name": "Log - Documento Assinado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [900, 420],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "log-signed",
+              "name": "mensagem",
+              "value": "=Documento {{ $json.data.name }} assinado. Re-análise de IA acionada.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Receber Evento ZapSign": {
+      "main": [
+        [{ "node": "Tipo de Evento", "type": "main", "index": 0 }]
+      ]
+    },
+    "Tipo de Evento": {
+      "main": [
+        [{ "node": "Buscar Detalhes do Documento", "type": "main", "index": 0 }],
+        [{ "node": "Acionar Re-análise de IA", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar Detalhes do Documento": {
+      "main": [
+        [{ "node": "Log - Documento Criado", "type": "main", "index": 0 }]
+      ]
+    },
+    "Acionar Re-análise de IA": {
+      "main": [
+        [{ "node": "Log - Documento Assinado", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -11,7 +11,8 @@ class Document(models.Model):
     name = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     token = models.CharField(max_length=255, blank=True, null=True)
-    open_id = models.CharField(blank=True, null=True)
+    open_id = models.IntegerField(blank=True, null=True)
+    url_pdf = models.URLField(blank=True, null=True)
     external_id = models.CharField(max_length=255, blank=True, null=True)
     created_by = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -20,6 +21,7 @@ class Document(models.Model):
     ai_summary = models.TextField(blank=True, null=True)
     ai_missing_topics = models.JSONField(blank=True, null=True)
     ai_insights = models.TextField(blank=True, null=True)
+    extracted_text = models.TextField(null=True,blank=True)
 
     class Meta:
         verbose_name = 'Document'
