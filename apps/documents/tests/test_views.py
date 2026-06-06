@@ -55,6 +55,26 @@ class TestDocumentViewSet:
         assert response.status_code == 401
 
     @patch('apps.documents.views.DocumentService')
+    def test_analyze_action_triggers_reanalysis(self, mock_service, auth_client):
+        client, user, company = auth_client
+        document = baker.make(Document, company=company, deleted_at=None, extracted_text='texto')
+        mock_service.return_value.reanalyze_document.return_value = document
+
+        response = client.post(f'/api/v1/documents/{document.id}/analyze/')
+
+        assert response.status_code == 200
+        mock_service.return_value.reanalyze_document.assert_called_once_with(document)
+
+    @patch('apps.documents.views.DocumentService')
+    def test_analyze_action_returns_403_for_other_user_document(self, mock_service, auth_client):
+        client, user, company = auth_client
+        other_document = baker.make(Document, deleted_at=None)
+
+        response = client.post(f'/api/v1/documents/{other_document.id}/analyze/')
+
+        assert response.status_code == 404
+
+    @patch('apps.documents.views.DocumentService')
     def test_create_returns_502_if_zapsign_fails(self, mock_service, auth_client):
         client, user, company = auth_client
         mock_service.return_value.create_document_with_signers.side_effect = Exception('ZapSign error')

@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.db.models import QuerySet
+from django.db.models import Count, QuerySet
 from django.utils import timezone
 
 from apps.documents.models import Document
@@ -13,6 +13,14 @@ class SignerRepository:
             document__company__user=user,
             deleted_at__isnull=True,
         )
+
+    def get_summary_for_user(self, user: User) -> dict:
+        qs = self.get_active_for_user(user)
+        by_status = {
+            item['status']: item['count']
+            for item in qs.values('status').annotate(count=Count('id'))
+        }
+        return {'total': qs.count(), 'by_status': by_status}
 
     def get_active_for_document(self, document: Document) -> QuerySet[Signer]:
         return Signer.objects.filter(
@@ -44,6 +52,24 @@ class SignerRepository:
     def soft_delete(self, signer: Signer) -> Signer:
         signer.deleted_at = timezone.now()
         signer.save(update_fields=["deleted_at"])
+        return signer
+
+    def update_status_by_token(
+        self,
+        token: str,
+        *,
+        status: str,
+        sign_url: str | None = None,
+    ) -> Signer | None:
+        signer = Signer.objects.filter(token=token).first()
+        if not signer:
+            return None
+        signer.status = status
+        fields = ["status"]
+        if sign_url:
+            signer.sign_url = sign_url
+            fields.append("sign_url")
+        signer.save(update_fields=fields)
         return signer
 
     def soft_delete_by_document(self, document: Document) -> None:

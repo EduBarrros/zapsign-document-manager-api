@@ -2,6 +2,7 @@ import logging
 from django.db import transaction
 from apps.integrations.ai_analysis import GeminiClient
 from apps.integrations.pdf_extractor import PDFExtractor
+from apps.integrations.webhook_dispatcher import WebhookDispatcher
 from apps.integrations.zapsign import ZapSignClient
 from .models import Document
 from .repositories import DocumentRepository
@@ -38,7 +39,16 @@ class DocumentService:
 
             self._create_signers(document, signers_data)
 
+        # _extract_pdf e _analyze_ai são chamadas síncronas intencionalmente nesta versão.
+        # Em produção com volume real, ambas devem ser movidas para tasks assíncronas
+        # (ex: Celery) que recebem apenas document.id — a separação por service/repository
+        # já garante que a migração não exige mudanças nas camadas superiores.
         self._analyze_ai(document, extracted_text)
+
+        WebhookDispatcher().dispatch(
+            'document.created',
+            {'document_id': document.id, 'company_id': company.id, 'status': document.status},
+        )
 
         logger.info(
             "Documento criado document_id=%s company_id=%s",
@@ -46,6 +56,45 @@ class DocumentService:
             company.id,
         )
 
+        return document
+
+    def reanalyze_document(self, document: Document) -> Document:
+        logger.info("Re-análise de IA iniciada document_id=%s", document.id)
+        extracted_text = document.extracted_text or f"Documento - {document.name}"
+        self._analyze_ai(document, extracted_text)
+        return document
+
+    def process_zapsign_webhook(self, payload: dict) -> Document | None:
+        document_token = payload.get("token")
+        document = self.document_repository.get_by_token(document_token)
+
+        if not document:
+            logger.warning("Webhook ZapSign: documento não encontrado token=%s", document_token)
+            return None
+
+        new_status = payload.get("status", document.status)
+        self.document_repository.update_status(document, new_status)
+
+        for signer_data in payload.get("signers", []):
+            signer_token = signer_data.get("token")
+            if signer_token:
+                self.signer_repository.update_status_by_token(
+                    signer_token,
+                    status=signer_data.get("status", "pending"),
+                    sign_url=signer_data.get("sign_url"),
+                )
+
+        if new_status == Document.Status.SIGNED:
+            WebhookDispatcher().dispatch(
+                'document.signed',
+                {'document_id': document.id, 'company_id': document.company_id},
+            )
+
+        logger.info(
+            "Webhook ZapSign processado document_id=%s status=%s",
+            document.id,
+            new_status,
+        )
         return document
 
     def delete_document(self, document: Document) -> None:

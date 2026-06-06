@@ -1,8 +1,10 @@
 import logging
 
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 from core.response import api_response
 from .serializers import (
     DocumentResponseSerializer,
@@ -15,6 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 @extend_schema(tags=["Documents"])
+@extend_schema(
+    methods=["GET"],
+    parameters=[
+        OpenApiParameter("status", OpenApiTypes.STR, description="Filtrar por status (pending, signed, cancelled)"),
+        OpenApiParameter("company", OpenApiTypes.INT, description="Filtrar por ID da empresa"),
+    ],
+)
 class DocumentViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentResponseSerializer
 
@@ -23,7 +32,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
         self.document_repository = document_repository or DocumentRepository()
 
     def get_queryset(self):
-        return self.document_repository.get_active_for_user(self.request.user)
+        qs = self.document_repository.get_active_for_user(self.request.user)
+        status = self.request.query_params.get('status')
+        company_id = self.request.query_params.get('company')
+        if status:
+            qs = qs.filter(status=status)
+        if company_id:
+            qs = qs.filter(company_id=company_id)
+        return qs
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -66,6 +82,18 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 error_code='ZAPSIGN_ERROR',
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+
+    @extend_schema(
+        methods=["POST"],
+        request=None,
+        responses={200: DocumentResponseSerializer},
+        summary="Re-executa a análise de IA sobre o conteúdo do documento.",
+    )
+    @action(detail=True, methods=["post"], url_path="analyze")
+    def analyze(self, request, pk=None):
+        document = self.get_object()
+        document = DocumentService().reanalyze_document(document)
+        return api_response(data=DocumentResponseSerializer(document).data)
 
     def destroy(self, request, *args, **kwargs):
         document = self.get_object()
