@@ -1,4 +1,3 @@
-from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -19,8 +18,8 @@ class SignupView(APIView):
         tags=['Authentication'],
         request=SignupRequestSerializer,
         responses={201: SignupResponseSerializer},
-        summary='Cadastro de empresa',
-        description='Cria um novo usuário e vincula uma company. Retorna o token de autenticação.',
+        summary='Cadastro de usuário',
+        description='Cria um novo usuário e retorna o token de autenticação.'
     )
     def post(self, request):
         request_serializer = SignupRequestSerializer(data=request.data)
@@ -29,8 +28,6 @@ class SignupView(APIView):
         result = AuthService.signup(
             username=request_serializer.validated_data['email'],
             password=request_serializer.validated_data['password'],
-            company_name=request_serializer.validated_data['company_name'],
-            api_token=request_serializer.validated_data['zap_sign_api_token'],
         )
 
         response_serializer = SignupResponseSerializer(result)
