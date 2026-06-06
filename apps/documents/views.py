@@ -1,9 +1,12 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from .models import Document
-from .serializers import DocumentResponseSerializer, DocumentCreateSerializer
-from .services import DocumentService
 from drf_spectacular.utils import extend_schema
+from .models import Document
+from .serializers import (
+    DocumentResponseSerializer,
+    DocumentCreateSerializer
+)
+from .services import DocumentService
 
 
 @extend_schema(tags=["Documents"])
@@ -22,16 +25,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
         return DocumentResponseSerializer
 
     def create(self, request, *args, **kwargs):
-        serializer = DocumentCreateSerializer(data=request.data)
+        serializer = DocumentCreateSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+
         serializer.is_valid(raise_exception=True)
 
-        try:
-            company = request.user.company
-        except Exception:
-            return Response(
-                {'error': 'Nenhuma company vinculada a este usuário'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        company = serializer.validated_data['company']
 
         service = DocumentService()
 
@@ -40,10 +41,12 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 data=dict(serializer.validated_data),
                 company=company,
             )
+
             return Response(
                 DocumentResponseSerializer(document).data,
                 status=status.HTTP_201_CREATED
             )
+
         except Exception as exception:
             return Response(
                 {'error': str(exception)},
@@ -52,6 +55,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         document = self.get_object()
+
         service = DocumentService()
         service.delete_document(document)
+
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -41,3 +41,13 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
             'url_pdf',
             'signers',
         ]
+
+    def validate_company(self, company):
+        request = self.context['request']
+
+        if company.user != request.user:
+            raise serializers.ValidationError(
+                'Company não pertence ao usuário autenticado'
+            )
+
+        return company

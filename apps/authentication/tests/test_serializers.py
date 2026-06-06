@@ -11,8 +11,7 @@ class TestSignupRequestSerializer:
         input_data = {
             'email': 'novo_usuario@teste.com',
             'password': 'password123',
-            'company_name': 'Minha Empresa',
-            'zap_sign_api_token': 'token_secreto_123'
+            'company_name': 'Minha Empresa'
         }
         serializer = SignupRequestSerializer(data=input_data)
         assert serializer.is_valid(), serializer.errors
@@ -23,8 +22,7 @@ class TestSignupRequestSerializer:
         input_data = {
             'email': 'ja_existe@teste.com',
             'password': 'password123',
-            'company_name': 'Empresa Teste',
-            'zap_sign_api_token': 'token123'
+            'company_name': 'Empresa Teste'
         }
         serializer = SignupRequestSerializer(data=input_data)
         assert not serializer.is_valid()
@@ -34,23 +32,11 @@ class TestSignupRequestSerializer:
         input_data = {
             'email': 'usuario@teste.com',
             'password': 'short',
-            'company_name': 'Empresa Teste',
-            'zap_sign_api_token': 'token123'
+            'company_name': 'Empresa Teste'
         }
         serializer = SignupRequestSerializer(data=input_data)
         assert not serializer.is_valid()
         assert 'password' in serializer.errors
-
-    def test_rejects_empty_zap_sign_api_token(self):
-        input_data = {
-            'email': 'usuario@teste.com',
-            'password': 'password123',
-            'company_name': 'Empresa Teste',
-            'zap_sign_api_token': '   '
-        }
-        serializer = SignupRequestSerializer(data=input_data)
-        assert not serializer.is_valid()
-        assert 'zap_sign_api_token' in serializer.errors
 
 
 class TestLoginRequestSerializer:
