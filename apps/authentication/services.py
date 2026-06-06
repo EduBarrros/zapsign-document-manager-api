@@ -1,32 +1,46 @@
+import logging
+
 from django.contrib.auth import authenticate
-from django.contrib.auth.models import User
-from rest_framework.authtoken.models import Token
+
+from .repositories import TokenRepository, UserRepository
+
+logger = logging.getLogger(__name__)
+
 
 class AuthService:
+    def __init__(
+        self,
+        user_repository: UserRepository | None = None,
+        token_repository: TokenRepository | None = None,
+    ):
+        self.user_repository = user_repository or UserRepository()
+        self.token_repository = token_repository or TokenRepository()
 
-    @staticmethod
-    def signup(*, username: str, password: str) -> dict:
-        user = User.objects.create_user(
+    def signup(self, *, username: str, password: str) -> dict:
+        user = self.user_repository.create_user(
             username=username,
-            email=username,
-            password=password
+            password=password,
         )
 
-        token, _ = Token.objects.get_or_create(user=user)
+        token = self.token_repository.get_or_create_for_user(user)
+
+        logger.info('Usuário cadastrado user_id=%s username=%s', user.id, user.username)
 
         return {
             'token': token.key,
             'username': user.username,
         }
-    
-    @staticmethod
-    def login(*, username: str, password: str) -> dict:
+
+    def login(self, *, username: str, password: str) -> dict:
         user = authenticate(username=username, password=password)
 
         if not user:
+            logger.warning('Tentativa de login inválida username=%s', username)
             raise ValueError('Credenciais inválidas')
-        
-        token, _ = Token.objects.get_or_create(user=user)
+
+        token = self.token_repository.get_or_create_for_user(user)
+
+        logger.info('Login realizado user_id=%s username=%s', user.id, user.username)
 
         return {
             'token': token.key,

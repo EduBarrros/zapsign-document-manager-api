@@ -1,6 +1,11 @@
+import json
+import logging
+
 import google.generativeai as genai
 from django.conf import settings
-import json
+
+logger = logging.getLogger(__name__)
+
 
 class GeminiClient:
     def __init__(self):
@@ -8,7 +13,6 @@ class GeminiClient:
         self.model = genai.GenerativeModel('gemini-2.5-flash')
 
     def analyze_document(self, document_content: str) -> dict:
-    
         prompt = f"""
         Você é um analista especializado em documentos e contratos.
 
@@ -30,21 +34,30 @@ class GeminiClient:
             "insights": "..."
         }}
         """
-    
+
         try:
-            
             response = self.model.generate_content(prompt)
             text = response.text.strip()
-           
+
             if text.startswith('```'):
                 text = text.split('```')[1]
                 if text.startswith('json'):
                     text = text[4:]
 
-            return json.loads(text)
-        
-        except Exception as exception:
-            return{
+            result = json.loads(text)
+            logger.info(
+                'Análise Gemini concluída content_length=%s',
+                len(document_content),
+            )
+            return result
+
+        except Exception:
+            logger.warning(
+                'Falha na análise Gemini content_length=%s',
+                len(document_content),
+                exc_info=True,
+            )
+            return {
                 "summary": "Analysis unavailable",
                 "missing_topics": [],
                 "insights": "Analysis unavailable"

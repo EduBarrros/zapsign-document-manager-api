@@ -1,23 +1,28 @@
+import logging
+
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
-from .models import Document
 from .serializers import (
     DocumentResponseSerializer,
     DocumentCreateSerializer
 )
 from .services import DocumentService
+from .repositories import DocumentRepository
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema(tags=["Documents"])
 class DocumentViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentResponseSerializer
 
+    def __init__(self, *args, document_repository=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.document_repository = document_repository or DocumentRepository()
+
     def get_queryset(self):
-        return Document.objects.filter(
-            company__user=self.request.user,
-            deleted_at__isnull=True
-        )
+        return self.document_repository.get_active_for_user(self.request.user)
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -48,6 +53,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
             )
 
         except Exception as exception:
+            logger.error(
+                'Erro ao criar documento user_id=%s company_id=%s name=%s',
+                request.user.id,
+                company.id,
+                serializer.validated_data.get('name'),
+                exc_info=True,
+            )
             return Response(
                 {'error': str(exception)},
                 status=status.HTTP_502_BAD_GATEWAY
@@ -55,6 +67,12 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         document = self.get_object()
+
+        logger.info(
+            'Requisição de exclusão de documento document_id=%s user_id=%s',
+            document.id,
+            request.user.id,
+        )
 
         service = DocumentService()
         service.delete_document(document)

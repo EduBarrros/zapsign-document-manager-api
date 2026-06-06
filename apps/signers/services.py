@@ -1,10 +1,10 @@
-from django.utils import timezone
 from .models import Signer
+from .repositories import SignerRepository
 
 
 class SignerService:
-    @staticmethod
-    def soft_delete(company: Signer) -> Signer:
-        company.deleted_at = timezone.now()
-        company.save(update_fields=["deleted_at"])
-        return company
+    def __init__(self, repository: SignerRepository | None = None):
+        self.repository = repository or SignerRepository()
+
+    def soft_delete(self, signer: Signer) -> Signer:
+        return self.repository.soft_delete(signer)

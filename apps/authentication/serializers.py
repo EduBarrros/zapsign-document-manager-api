@@ -1,5 +1,7 @@
-from django.contrib.auth.models import User
 from rest_framework import serializers
+
+from .repositories import UserRepository
+
 
 class SignupRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=150)
@@ -9,7 +11,7 @@ class SignupRequestSerializer(serializers.Serializer):
     )
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
+        if UserRepository().email_exists(value):
             raise serializers.ValidationError(
                 "Email já cadastrado"
             )

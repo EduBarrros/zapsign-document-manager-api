@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -10,6 +12,9 @@ from .serializers import (
     LoginRequestSerializer,
     LoginResponseSerializer
 )
+
+logger = logging.getLogger(__name__)
+
 
 class SignupView(APIView):
     permission_classes = [AllowAny]
@@ -25,14 +30,21 @@ class SignupView(APIView):
         request_serializer = SignupRequestSerializer(data=request.data)
         request_serializer.is_valid(raise_exception=True)
 
-        result = AuthService.signup(
-            username=request_serializer.validated_data['email'],
-            password=request_serializer.validated_data['password'],
-        )
+        email = request_serializer.validated_data['email']
+
+        try:
+            result = AuthService().signup(
+                username=email,
+                password=request_serializer.validated_data['password'],
+            )
+        except Exception:
+            logger.error('Erro ao cadastrar usuário username=%s', email, exc_info=True)
+            raise
 
         response_serializer = SignupResponseSerializer(result)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-    
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -47,16 +59,19 @@ class LoginView(APIView):
         request_serializer = LoginRequestSerializer(data=request.data)
         request_serializer.is_valid(raise_exception=True)
 
+        email = request_serializer.validated_data['email']
+
         try:
-            result = AuthService.login(
-                username = request_serializer.validated_data['email'],
-                password = request_serializer.validated_data['password']
+            result = AuthService().login(
+                username=email,
+                password=request_serializer.validated_data['password']
             )
         except ValueError as e:
+            logger.warning('Login rejeitado username=%s', email)
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-        
+
         response_serializer = LoginResponseSerializer(result)
         return Response(response_serializer.data, status=status.HTTP_200_OK)

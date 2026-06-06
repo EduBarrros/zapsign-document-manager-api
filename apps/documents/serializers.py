@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import Document
+from apps.companies.repositories import CompanyRepository
 from apps.signers.serializers import SignerRequestSerializer, SignerResponseSerializer
+from .models import Document
 
 
 class DocumentResponseSerializer(serializers.ModelSerializer):
@@ -45,7 +46,7 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
     def validate_company(self, company):
         request = self.context['request']
 
-        if company.user != request.user:
+        if not CompanyRepository().belongs_to_user(company, request.user):
             raise serializers.ValidationError(
                 'Company não pertence ao usuário autenticado'
             )
