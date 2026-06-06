@@ -1,6 +1,6 @@
 import json
 from django.contrib.auth.models import User
-from django.db.models import QuerySet
+from django.db.models import Count, QuerySet
 from django.utils import timezone
 
 from .models import Document
@@ -50,6 +50,22 @@ class DocumentRepository:
         document.ai_missing_topics = missing_topics
         document.ai_insights = insights
         document.save(update_fields=["ai_summary", "ai_missing_topics", "ai_insights"])
+        return document
+
+    def get_summary_for_user(self, user: User) -> dict:
+        qs = self.get_active_for_user(user)
+        by_status = {
+            item['status']: item['count']
+            for item in qs.values('status').annotate(count=Count('id'))
+        }
+        return {'total': qs.count(), 'by_status': by_status}
+
+    def get_by_token(self, token: str) -> Document | None:
+        return Document.objects.filter(token=token, deleted_at__isnull=True).first()
+
+    def update_status(self, document: Document, status: str) -> Document:
+        document.status = status
+        document.save(update_fields=["status"])
         return document
 
     def soft_delete(self, document: Document) -> Document:

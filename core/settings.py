@@ -1,16 +1,23 @@
 import os
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me')
-
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+_secret_key = os.getenv('SECRET_KEY')
+if not _secret_key:
+    if DEBUG:
+        _secret_key = 'django-insecure-dev-only-do-not-use-in-production'
+    else:
+        raise ImproperlyConfigured("A variável de ambiente SECRET_KEY deve ser definida em produção.")
+SECRET_KEY = _secret_key
+
+ALLOWED_HOSTS = ['*'] if DEBUG else os.getenv('ALLOWED_HOSTS', '').split(',')
 
 DJANGO_APPS = [
     'django.contrib.admin',
@@ -104,7 +111,9 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'EXCEPTION_HANDLER': 'core.exception_handler.custom_exception_handler'
+    'EXCEPTION_HANDLER': 'core.exception_handler.custom_exception_handler',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
 }
 
 SPECTACULAR_SETTINGS = {
@@ -114,7 +123,9 @@ SPECTACULAR_SETTINGS = {
 }
 
 ZAPSIGN_API_URL = os.getenv('ZAPSIGN_API_URL', 'https://sandbox.api.zapsign.com.br/api/v1')
+ZAPSIGN_WEBHOOK_SECRET = os.getenv('ZAPSIGN_WEBHOOK_SECRET')
 GEMINI_KEY = os.getenv("GEMINI_KEY")
+N8N_WEBHOOK_URL = os.getenv('N8N_WEBHOOK_URL')
 
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'DEBUG' if DEBUG else 'INFO')
 
