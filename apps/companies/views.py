@@ -15,6 +15,9 @@ class CompanyViewSet(viewsets.ModelViewSet):
         deleted_at__isnull=True
     )
 
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
     def destroy(self, request, *args, **kwargs):
         company = self.get_object()
         CompanyService.soft_delete(company)

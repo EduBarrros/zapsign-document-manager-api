@@ -15,7 +15,10 @@ class SignerViewSet(viewsets.ModelViewSet):
         return super().get_serializer_class()
 
     def get_queryset(self):
-        return Signer.objects.filter(deleted_at__isnull=True)
+        return Signer.objects.filter(
+            document__company__user=self.request.user,
+            deleted_at__isnull=True
+        )
 
     def destroy(self, request, *args, **kwargs):
         signer = self.get_object()

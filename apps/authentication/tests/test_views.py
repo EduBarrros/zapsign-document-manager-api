@@ -12,8 +12,7 @@ class TestAuthViews:
         payload = {
             'email': 'api_signup@teste.com',
             'password': 'password123',
-            'company_name': 'Empresa API',
-            'zap_sign_api_token': 'token_api_123'
+            'company_name': 'Empresa API'
         }
 
         response = client.post('/api/v1/auth/signup/', payload, format='json')
