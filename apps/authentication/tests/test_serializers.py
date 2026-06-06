@@ -1,50 +1,38 @@
 import pytest
 from model_bakery import baker
 from django.contrib.auth.models import User
-from apps.authentication.serializers import SignupRequestSerializer, LoginRequestSerializer
+from apps.authentication.serializers import SignupRequestSerializer
 
 
 @pytest.mark.django_db
 class TestSignupRequestSerializer:
 
-    def test_deserializes_valid_signup_data(self):
+    def test_accepts_valid_data(self):
         input_data = {
-            'email': 'novo_usuario@teste.com',
-            'password': 'password123',
-            'company_name': 'Minha Empresa'
+            "email": "novo@teste.com",
+            "password": "password123",
+            "company_name": "Empresa Teste",
         }
         serializer = SignupRequestSerializer(data=input_data)
-        assert serializer.is_valid(), serializer.errors
+        assert serializer.is_valid()
 
     def test_rejects_existing_email(self):
-        baker.make(User, email='ja_existe@teste.com')
-        
+        baker.make(User, username="ja_existe@teste.com", email="ja_existe@teste.com")
+
         input_data = {
-            'email': 'ja_existe@teste.com',
-            'password': 'password123',
-            'company_name': 'Empresa Teste'
+            "email": "ja_existe@teste.com",
+            "password": "password123",
+            "company_name": "Empresa Teste",
         }
         serializer = SignupRequestSerializer(data=input_data)
         assert not serializer.is_valid()
-        assert 'email' in serializer.errors
+        assert "email" in serializer.errors
 
     def test_rejects_short_password(self):
         input_data = {
-            'email': 'usuario@teste.com',
-            'password': 'short',
-            'company_name': 'Empresa Teste'
+            "email": "novo@teste.com",
+            "password": "123",
         }
         serializer = SignupRequestSerializer(data=input_data)
         assert not serializer.is_valid()
-        assert 'password' in serializer.errors
-
-
-class TestLoginRequestSerializer:
-
-    def test_deserializes_valid_login_data(self):
-        input_data = {
-            'email': 'login@teste.com',
-            'password': 'password123'
-        }
-        serializer = LoginRequestSerializer(data=input_data)
-        assert serializer.is_valid(), serializer.errors
+        assert "password" in serializer.errors

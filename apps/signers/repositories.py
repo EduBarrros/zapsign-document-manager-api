@@ -2,18 +2,23 @@ from django.contrib.auth.models import User
 from django.db.models import QuerySet
 from django.utils import timezone
 
-from apps.common.repositories.base import SoftDeleteRepository
 from apps.documents.models import Document
-
 from .models import Signer
 
 
-class SignerRepository(SoftDeleteRepository[Signer]):
-    def __init__(self):
-        super().__init__(Signer)
+class SignerRepository:
 
     def get_active_for_user(self, user: User) -> QuerySet[Signer]:
-        return self.filter_active(document__company__user=user)
+        return Signer.objects.filter(
+            document__company__user=user,
+            deleted_at__isnull=True,
+        )
+
+    def get_active_for_document(self, document: Document) -> QuerySet[Signer]:
+        return Signer.objects.filter(
+            document=document,
+            deleted_at__isnull=True,
+        )
 
     def create_for_document(
         self,
@@ -23,10 +28,10 @@ class SignerRepository(SoftDeleteRepository[Signer]):
         email: str,
         token: str | None = None,
         external_id: str | None = None,
-        status: str = 'pending',
+        status: str = "pending",
         sign_url: str | None = None,
     ) -> Signer:
-        return self.create(
+        return Signer.objects.create(
             document=document,
             name=name,
             email=email,
@@ -36,5 +41,12 @@ class SignerRepository(SoftDeleteRepository[Signer]):
             sign_url=sign_url,
         )
 
+    def soft_delete(self, signer: Signer) -> Signer:
+        signer.deleted_at = timezone.now()
+        signer.save(update_fields=["deleted_at"])
+        return signer
+
     def soft_delete_by_document(self, document: Document) -> None:
-        document.signers.all().update(deleted_at=timezone.now())
+        Signer.objects.filter(document=document).update(
+            deleted_at=timezone.now(),
+        )

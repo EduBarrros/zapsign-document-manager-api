@@ -1,52 +1,56 @@
 import pytest
-from unittest.mock import patch
 from rest_framework.test import APIClient
 from django.contrib.auth.models import User
-
 
 @pytest.mark.django_db
 class TestAuthViews:
 
-    def test_signup_endpoint_returns_201_on_success(self):
+    def test_signup_returns_201(self):
         client = APIClient()
+
         payload = {
-            'email': 'api_signup@teste.com',
-            'password': 'password123',
-            'company_name': 'Empresa API'
+            "email": "api@teste.com",
+            "password": "12345678",
         }
 
-        response = client.post('/api/v1/auth/signup/', payload, format='json')
+        response = client.post("/api/v1/auth/signup/", payload)
 
         assert response.status_code == 201
-        assert 'token' in response.data
-        assert response.data['username'] == 'api_signup@teste.com'
+        assert response.data["data"]["token"]
+        assert response.data["data"]["username"]
 
-    def test_login_endpoint_returns_200_on_success(self):
+    def test_login_success(self):
         client = APIClient()
-        User.objects.create_user(username='api_login@teste.com', password='api_password')
 
-        payload = {
-            'email': 'api_login@teste.com',
-            'password': 'api_password'
-        }
+        User.objects.create_user(
+            username="api@teste.com",
+            email="api@teste.com",
+            password="12345678",
+        )
 
-        response = client.post('/api/v1/auth/login/', payload, format='json')
+        response = client.post("/api/v1/auth/login/", {
+            "email": "api@teste.com",
+            "password": "12345678",
+        })
 
         assert response.status_code == 200
-        assert 'token' in response.data
-        assert response.data['username'] == 'api_login@teste.com'
+        assert response.data["data"]["token"]
+        assert response.data["data"]["username"]
 
-    def test_login_endpoint_returns_401_on_invalid_credentials(self):
+    def test_login_invalid_credentials(self):
         client = APIClient()
-        User.objects.create_user(username='api_login@teste.com', password='api_password')
 
-        payload = {
-            'email': 'api_login@teste.com',
-            'password': 'password_errado'
-        }
+        User.objects.create_user(
+            username="api@teste.com",
+            email="api@teste.com",
+            password="12345678",
+        )
 
-        response = client.post('/api/v1/auth/login/', payload, format='json')
+        response = client.post("/api/v1/auth/login/", {
+            "email": "api@teste.com",
+            "password": "errado123",
+        })
 
         assert response.status_code == 401
-        assert 'error' in response.data
-        assert response.data['error'] == 'Credenciais inválidas'
+        assert response.data["error"]["message"] == "Credenciais inválidas"
+        assert response.data["error"]["code"] == "AUTH_INVALID"

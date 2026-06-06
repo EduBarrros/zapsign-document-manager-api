@@ -1,17 +1,13 @@
 import logging
-
 from django.db import transaction
-
 from apps.integrations.ai_analysis import GeminiClient
 from apps.integrations.pdf_extractor import PDFExtractor
 from apps.integrations.zapsign import ZapSignClient
-from apps.signers.repositories import SignerRepository
-
 from .models import Document
 from .repositories import DocumentRepository
+from apps.signers.repositories import SignerRepository
 
 logger = logging.getLogger(__name__)
-
 
 class DocumentService:
     def __init__(
@@ -23,115 +19,134 @@ class DocumentService:
         self.signer_repository = signer_repository or SignerRepository()
 
     def create_document_with_signers(self, data: dict, company) -> Document:
-        signers_data = data.pop('signers', [])
-        url_pdf = data.pop('url_pdf', None)
+        signers_data = data.pop("signers", [])
+        url_pdf = data.pop("url_pdf", None)
 
         logger.info(
-            'Iniciando criação de documento name=%s company_id=%s signers_count=%s',
-            data['name'],
+            "Iniciando criação de documento name=%s company_id=%s signers=%s",
+            data.get("name"),
             company.id,
             len(signers_data),
         )
 
+        with transaction.atomic():
+            document = self._create_document(data, company, url_pdf)
+
+            extracted_text = self._extract_pdf(url_pdf, document, company)
+
+            self._send_to_zapsign(document, signers_data, company)
+
+            self._create_signers(document, signers_data)
+
+        self._analyze_ai(document, extracted_text)
+
+        logger.info(
+            "Documento criado document_id=%s company_id=%s",
+            document.id,
+            company.id,
+        )
+
+        return document
+
+    def delete_document(self, document: Document) -> None:
+        self.document_repository.soft_delete(document)
+
+        signers = self.signer_repository.get_active_for_document(document)
+        for signer in signers:
+            self.signer_repository.soft_delete(signer)
+
+        logger.info("Soft delete de documento document_id=%s", document.id)
+
+    def _create_document(self, data, company, url_pdf) -> Document:
+        return self.document_repository.create(
+            name=data["name"],
+            created_by=data["created_by"],
+            company=company,
+            url_pdf=url_pdf,
+            extracted_text="",
+        )
+
+    def _extract_pdf(self, url_pdf, document, company) -> str:
         try:
-            document_content = PDFExtractor.extract_from_url(url_pdf)
+            text = PDFExtractor.extract_from_url(url_pdf)
+
+            self.document_repository.update_extracted_text(document, text)
+
+            logger.info("PDF processado document_id=%s", document.id)
+
+            return text
+
         except Exception:
             logger.warning(
-                'Falha ao extrair texto do PDF url=%s company_id=%s; usando conteúdo fallback',
+                "Falha ao extrair PDF document_id=%s url=%s",
+                document.id,
                 url_pdf,
-                company.id,
                 exc_info=True,
             )
-            document_content = f"""
-            Nome do documento: {data['name']}
-            Empresa: {company.name}
-            """
 
-        with transaction.atomic():
-            document = self.document_repository.create(
-                name=data['name'],
-                created_by=data['created_by'],
-                company=company,
-                url_pdf=url_pdf,
-                extracted_text=document_content
-            )
+            fallback = f"Documento sem extração válida - {document.name}"
 
+            self.document_repository.update_extracted_text(document, fallback)
+
+            return fallback
+
+    def _send_to_zapsign(self, document, signers_data, company):
+        try:
             client = ZapSignClient(api_token=company.api_token)
 
-            zapsign_create_document_response = client.create_document(
+            response = client.create_document(
                 name=document.name,
                 url_pdf=document.url_pdf,
-                signers=signers_data
+                signers=signers_data,
             )
 
             self.document_repository.update_zapsign_fields(
                 document,
-                token=zapsign_create_document_response['token'],
-                open_id=zapsign_create_document_response['open_id'],
-                external_id=zapsign_create_document_response['external_id'],
-                status=zapsign_create_document_response['status'],
+                token=response["token"],
+                open_id=response["open_id"],
+                external_id=response["external_id"],
+                status=response["status"],
             )
 
-            document_signers = zapsign_create_document_response.get('signers', [])
+        except Exception:
+            logger.exception("Erro ZapSign document_id=%s", document.id)
+            raise
 
-            for signer_data, zapsign_signer in zip(signers_data, document_signers):
-                self.signer_repository.create_for_document(
-                    document,
-                    name=signer_data['name'],
-                    email=signer_data['email'],
-                    token=zapsign_signer.get('token'),
-                    external_id=zapsign_signer.get('external_id'),
-                    status=zapsign_signer.get('status', 'pending'),
-                    sign_url=zapsign_signer.get('sign_url'),
-                )
+    def _create_signers(self, document, signers_data):
+        for signer in signers_data:
+            self.signer_repository.create_for_document(
+                document,
+                name=signer["name"],
+                email=signer["email"],
+                token=signer.get("token"),
+                external_id=signer.get("external_id"),
+                status=signer.get("status", "pending"),
+                sign_url=signer.get("sign_url"),
+            )
 
-        logger.info(
-            'Documento criado document_id=%s company_id=%s zapsign_token=%s',
-            document.id,
-            company.id,
-            document.token,
-        )
-
-        self._analyze_document_with_ai(document)
-        return document
-
-    def _analyze_document_with_ai(self, document: Document) -> None:
-        logger.info('Iniciando análise de IA document_id=%s', document.id)
-
+    def _analyze_ai(self, document, extracted_text):
         try:
             gemini = GeminiClient()
 
-            analysis_result = gemini.analyze_document(
-                document_content=document.extracted_text
-            )
+            result = gemini.analyze_document(document_content=extracted_text)
 
             self.document_repository.update_ai_analysis(
                 document,
-                summary=analysis_result.get('summary', ''),
-                missing_topics=analysis_result.get('missing_topics', []),
-                insights=analysis_result.get('insights', ''),
+                summary=result.get("summary", ""),
+                missing_topics=result.get("missing_topics", []),
+                insights=result.get("insights", ""),
             )
-
-            logger.info('Análise de IA concluída document_id=%s', document.id)
 
         except Exception:
             logger.error(
-                'Falha na análise de IA document_id=%s',
+                "Falha na análise de IA document_id=%s",
                 document.id,
                 exc_info=True,
             )
+
             self.document_repository.update_ai_analysis(
                 document,
-                summary='Analysis unavailable',
+                summary="Analysis unavailable",
                 missing_topics=[],
-                insights='Analysis unavailable',
+                insights="",
             )
-
-    def delete_document(self, document: Document) -> None:
-        logger.info(
-            'Soft delete de documento document_id=%s company_id=%s',
-            document.id,
-            document.company_id,
-        )
-        self.signer_repository.soft_delete_by_document(document)
-        self.document_repository.soft_delete(document)
