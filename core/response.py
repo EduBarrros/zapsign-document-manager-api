@@ -9,3 +9,7 @@ def api_response(*, data=None, error=None, error_code=None, status=200):
         },
         status=status,
     )
+
+
+def error(*, message, code, status):
+    return api_response(error=message, error_code=code, status=status)
