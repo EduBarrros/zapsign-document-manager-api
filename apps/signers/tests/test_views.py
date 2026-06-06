@@ -45,7 +45,7 @@ class TestSignerViewSet:
         response = client.delete(f'/api/v1/signers/{signer.id}/')
         
         assert response.status_code == 204
-        mock_service.soft_delete.assert_called_once_with(signer)
+        mock_service.return_value.soft_delete.assert_called_once_with(signer)
 
     def test_unauthenticated_request_returns_401(self):
         client = APIClient()

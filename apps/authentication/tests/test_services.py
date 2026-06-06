@@ -9,7 +9,7 @@ from apps.authentication.services import AuthService
 class TestAuthService:
 
     def test_signup_creates_user_and_token(self):
-        result = AuthService.signup(
+        result = AuthService().signup(
             username='novo_admin@teste.com',
             password='senha_segura_123',
         )
@@ -28,7 +28,7 @@ class TestAuthService:
             password='corret_password'
         )
 
-        result = AuthService.login(
+        result = AuthService().login(
             username='auth_user@teste.com',
             password='corret_password'
         )
@@ -43,7 +43,7 @@ class TestAuthService:
         )
 
         with pytest.raises(ValueError) as exc_info:
-            AuthService.login(
+            AuthService().login(
                 username='auth_user@teste.com',
                 password='wrong_password'
             )

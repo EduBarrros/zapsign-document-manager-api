@@ -12,7 +12,7 @@ class TestSignerService:
         document = baker.make(Document)
         signer = baker.make(Signer, document=document, deleted_at=None)
 
-        updated_signer = SignerService.soft_delete(signer)
+        updated_signer = SignerService().soft_delete(signer)
 
         assert updated_signer.deleted_at is not None
         

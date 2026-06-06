@@ -1,10 +1,10 @@
-from django.utils import timezone
 from .models import Company
+from .repositories import CompanyRepository
 
 
 class CompanyService:
-    @staticmethod
-    def soft_delete(company: Company) -> Company:
-        company.deleted_at = timezone.now()
-        company.save(update_fields=["deleted_at"])
-        return company
+    def __init__(self, repository: CompanyRepository | None = None):
+        self.repository = repository or CompanyRepository()
+
+    def soft_delete(self, company: Company) -> Company:
+        return self.repository.soft_delete(company)
