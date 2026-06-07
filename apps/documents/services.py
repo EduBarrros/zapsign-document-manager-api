@@ -37,7 +37,7 @@ class DocumentService:
 
             zapsign_signers = self._send_to_zapsign(document, signers_data, company)
 
-            self._create_signers(document, zapsign_signers or signers_data)
+            self._create_signers(document, signers_data, zapsign_signers)
 
         # _extract_pdf e _analyze_ai são chamadas síncronas intencionalmente nesta versão.
         # Em produção com volume real, ambas devem ser movidas para tasks assíncronas
@@ -163,8 +163,9 @@ class DocumentService:
             logger.exception("Erro ZapSign document_id=%s", document.id)
             raise
 
-    def _create_signers(self, document, signers_data):
-        for signer in signers_data:
+    def _create_signers(self, document, signers_data, zapsign_signers=None):
+        zapsign_signers = zapsign_signers or []
+        for idx, signer in enumerate(signers_data):
             email = signer.get("email", "")
             if self.signer_repository.exists_for_document(document, email):
                 logger.info(
@@ -173,14 +174,15 @@ class DocumentService:
                     email,
                 )
                 continue
+            zapsign_data = zapsign_signers[idx] if idx < len(zapsign_signers) else {}
             self.signer_repository.create_for_document(
                 document,
                 name=signer["name"],
                 email=email,
-                token=signer.get("token"),
-                external_id=signer.get("external_id"),
-                status=signer.get("status", "pending"),
-                sign_url=signer.get("sign_url"),
+                token=zapsign_data.get("token"),
+                external_id=zapsign_data.get("external_id"),
+                status=zapsign_data.get("status", "pending"),
+                sign_url=zapsign_data.get("sign_url"),
             )
 
     def _analyze_ai(self, document, extracted_text):
