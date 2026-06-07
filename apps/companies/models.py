@@ -13,9 +13,10 @@ class Company(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
     last_updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta: 
+    class Meta:
         verbose_name = "Company"
         verbose_name_plural = "Companies"
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.name

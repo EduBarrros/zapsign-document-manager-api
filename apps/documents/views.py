@@ -8,7 +8,8 @@ from drf_spectacular.types import OpenApiTypes
 from core.response import api_response
 from .serializers import (
     DocumentResponseSerializer,
-    DocumentCreateSerializer
+    DocumentCreateSerializer,
+    DocumentUpdateSerializer,
 )
 from .services import DocumentService
 from .repositories import DocumentRepository
@@ -92,6 +93,53 @@ _DOCUMENT_EXAMPLE = {
         ),
     ],
 )
+@extend_schema(
+    methods=["PUT"],
+    summary="Atualizar documento",
+    description="Substitui completamente os dados do documento. Não reprocessa a ZapSign nem a análise de IA — use `POST /{id}/analyze/` para re-analisar.",
+    examples=[
+        OpenApiExample(
+            "Payload completo",
+            value={
+                "name": "Contrato Atualizado",
+                "created_by": "João Silva",
+                "company": 1,
+                "url_pdf": "https://exemplo.com/contrato-v2.pdf",
+                "signers": [{"name": "Maria Souza", "email": "maria@email.com"}],
+            },
+            request_only=True,
+        ),
+        OpenApiExample(
+            "Documento atualizado",
+            value={"data": _DOCUMENT_EXAMPLE, "error": None},
+            response_only=True,
+            status_codes=["200"],
+        ),
+    ],
+)
+@extend_schema(
+    methods=["PATCH"],
+    summary="Atualizar documento parcialmente",
+    description="Atualiza apenas os campos informados. Útil para corrigir o nome ou `created_by` sem reprocessar tudo.",
+    examples=[
+        OpenApiExample(
+            "Apenas nome",
+            value={"name": "Contrato Corrigido"},
+            request_only=True,
+        ),
+        OpenApiExample(
+            "Documento atualizado",
+            value={"data": _DOCUMENT_EXAMPLE, "error": None},
+            response_only=True,
+            status_codes=["200"],
+        ),
+    ],
+)
+@extend_schema(
+    methods=["DELETE"],
+    summary="Remover documento",
+    description="Realiza soft delete do documento e de todos os seus signatários. O registro permanece no banco mas é excluído das listagens.",
+)
 class DocumentViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentResponseSerializer
 
@@ -112,6 +160,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'create':
             return DocumentCreateSerializer
+        if self.action in ('update', 'partial_update'):
+            return DocumentUpdateSerializer
         return DocumentResponseSerializer
 
     def create(self, request, *args, **kwargs):
@@ -170,6 +220,21 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def analyze(self, request, pk=None):
         document = self.get_object()
         document = DocumentService().reanalyze_document(document)
+        return api_response(data=DocumentResponseSerializer(document).data)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        document = self.get_object()
+        serializer = self.get_serializer(document, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        logger.info(
+            'Documento atualizado document_id=%s user_id=%s',
+            document.id,
+            request.user.id,
+        )
+
         return api_response(data=DocumentResponseSerializer(document).data)
 
     def destroy(self, request, *args, **kwargs):

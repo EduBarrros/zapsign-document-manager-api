@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.companies.repositories import CompanyRepository
-from apps.signers.serializers import SignerRequestSerializer, SignerResponseSerializer
+from apps.signers.serializers import SignerNestedSerializer, SignerResponseSerializer
 from .models import Document
 
 
@@ -30,7 +30,7 @@ class DocumentResponseSerializer(serializers.ModelSerializer):
 
 
 class DocumentCreateSerializer(serializers.ModelSerializer):
-    signers = SignerRequestSerializer(many=True)
+    signers = SignerNestedSerializer(many=True)
     url_pdf = serializers.URLField()
 
     class Meta:
@@ -52,3 +52,9 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
             )
 
         return company
+
+
+class DocumentUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Document
+        fields = ['name', 'created_by', 'status']
