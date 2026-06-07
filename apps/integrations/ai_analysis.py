@@ -1,7 +1,7 @@
 import json
 import logging
 
-import google.generativeai as genai
+from google import genai
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -9,8 +9,7 @@ logger = logging.getLogger(__name__)
 
 class GeminiClient:
     def __init__(self):
-        genai.configure(api_key=settings.GEMINI_KEY)
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        self.client = genai.Client(api_key=settings.GEMINI_KEY)
 
     def analyze_document(self, document_content: str) -> dict:
         prompt = f"""
@@ -36,7 +35,10 @@ class GeminiClient:
         """
 
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+            )
             text = response.text.strip()
 
             if text.startswith('```'):

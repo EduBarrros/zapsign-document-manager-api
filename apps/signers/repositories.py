@@ -28,6 +28,13 @@ class SignerRepository:
             deleted_at__isnull=True,
         )
 
+    def exists_for_document(self, document: Document, email: str) -> bool:
+        return Signer.objects.filter(
+            document=document,
+            email=email,
+            deleted_at__isnull=True,
+        ).exists()
+
     def create_for_document(
         self,
         document: Document,

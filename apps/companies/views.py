@@ -49,6 +49,47 @@ _COMPANY_RESPONSE_EXAMPLE = OpenApiExample(
     description="Cadastra uma nova empresa vinculada ao usuário. O `api_token` é o token gerado na sua conta ZapSign (sandbox ou produção).",
     examples=[_COMPANY_REQUEST_EXAMPLE, _COMPANY_RESPONSE_EXAMPLE],
 )
+@extend_schema(
+    methods=["PUT"],
+    summary="Atualizar empresa",
+    description="Substitui completamente os dados da empresa. Útil para rotacionar o `api_token` da ZapSign.",
+    examples=[
+        OpenApiExample(
+            "Payload completo",
+            value={"name": "Acme Ltda Atualizada", "api_token": "novo-token-zapsign"},
+            request_only=True,
+        ),
+        OpenApiExample(
+            "Empresa atualizada",
+            value={"data": _COMPANY_EXAMPLE, "error": None},
+            response_only=True,
+            status_codes=["200"],
+        ),
+    ],
+)
+@extend_schema(
+    methods=["PATCH"],
+    summary="Atualizar empresa parcialmente",
+    description="Atualiza apenas os campos informados. Útil para rotacionar somente o `api_token` sem alterar o nome.",
+    examples=[
+        OpenApiExample(
+            "Apenas token",
+            value={"api_token": "novo-token-zapsign"},
+            request_only=True,
+        ),
+        OpenApiExample(
+            "Empresa atualizada",
+            value={"data": _COMPANY_EXAMPLE, "error": None},
+            response_only=True,
+            status_codes=["200"],
+        ),
+    ],
+)
+@extend_schema(
+    methods=["DELETE"],
+    summary="Remover empresa",
+    description="Realiza soft delete da empresa. Documentos vinculados não são removidos, apenas a empresa é excluída das listagens.",
+)
 class CompanyViewSet(viewsets.ModelViewSet):
     serializer_class = CompanySerializer
 
