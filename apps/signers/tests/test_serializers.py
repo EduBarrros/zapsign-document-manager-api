@@ -32,7 +32,8 @@ class TestSignerRequestSerializer:
     def test_deserializes_valid_data(self):
         input_data = {
             'name': 'Lucas Silva',
-            'email': 'lucas@zapsign.com'
+            'email': 'lucas@zapsign.com',
+            'document': 1,
         }
         serializer = SignerRequestSerializer(data=input_data)
         assert serializer.is_valid(), serializer.errors
