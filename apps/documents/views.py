@@ -3,7 +3,7 @@ import logging
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from core.response import api_response
 from .serializers import (
@@ -16,12 +16,80 @@ from .repositories import DocumentRepository
 logger = logging.getLogger(__name__)
 
 
+_DOCUMENT_EXAMPLE = {
+    "id": 1,
+    "name": "Contrato de Prestação de Serviços",
+    "status": "pending",
+    "open_id": 98765,
+    "token": "doc-token-abc123",
+    "url_pdf": "https://exemplo.com/contrato.pdf",
+    "external_id": "ext-abc123",
+    "created_at": "2024-01-15T10:00:00Z",
+    "created_by": "João Silva",
+    "company": 1,
+    "signers": [
+        {"id": 1, "name": "Maria Souza", "email": "maria@email.com", "status": "pending", "token": "signer-token-xyz", "external_id": "signer-ext-xyz", "sign_url": "https://sandbox.app.zapsign.com.br/verificar/xyz"}
+    ],
+    "ai_summary": "Contrato de prestação de serviços de consultoria por 12 meses.",
+    "ai_missing_topics": ["Cláusula de rescisão", "Multa por atraso"],
+    "ai_insights": "O contrato não especifica prazos de pagamento.",
+    "last_updated_at": "2024-01-15T10:05:00Z",
+}
+
+
 @extend_schema(tags=["Documents"])
 @extend_schema(
     methods=["GET"],
+    summary="Listar documentos",
+    description="Retorna todos os documentos ativos do usuário autenticado. Inclui signatários e resultado da análise de IA.",
     parameters=[
-        OpenApiParameter("status", OpenApiTypes.STR, description="Filtrar por status (pending, signed, cancelled)"),
+        OpenApiParameter("status", OpenApiTypes.STR, description="Filtrar por status: `pending`, `signed` ou `cancelled`"),
         OpenApiParameter("company", OpenApiTypes.INT, description="Filtrar por ID da empresa"),
+    ],
+    examples=[
+        OpenApiExample(
+            "Lista de documentos",
+            value={"count": 1, "next": None, "previous": None, "results": [_DOCUMENT_EXAMPLE]},
+            response_only=True,
+        )
+    ],
+)
+@extend_schema(
+    methods=["POST"],
+    summary="Criar documento",
+    description=(
+        "Cria um documento e executa automaticamente:\n"
+        "1. Extração de texto do PDF informado em `url_pdf`\n"
+        "2. Envio para assinatura na ZapSign (usando o `api_token` da empresa)\n"
+        "3. Análise de conteúdo com IA (resumo, insights e tópicos ausentes)\n\n"
+        "Retorna `502` se a comunicação com a ZapSign falhar."
+    ),
+    examples=[
+        OpenApiExample(
+            "Payload de criação",
+            value={
+                "name": "Contrato de Prestação de Serviços",
+                "created_by": "João Silva",
+                "company": 1,
+                "url_pdf": "https://exemplo.com/contrato.pdf",
+                "signers": [
+                    {"name": "Maria Souza", "email": "maria@email.com"}
+                ],
+            },
+            request_only=True,
+        ),
+        OpenApiExample(
+            "Documento criado com sucesso",
+            value={"data": _DOCUMENT_EXAMPLE, "error": None},
+            response_only=True,
+            status_codes=["201"],
+        ),
+        OpenApiExample(
+            "Falha na comunicação com ZapSign",
+            value={"data": None, "error": {"message": "Connection timeout", "code": "ZAPSIGN_ERROR"}},
+            response_only=True,
+            status_codes=["502"],
+        ),
     ],
 )
 class DocumentViewSet(viewsets.ModelViewSet):
@@ -87,7 +155,16 @@ class DocumentViewSet(viewsets.ModelViewSet):
         methods=["POST"],
         request=None,
         responses={200: DocumentResponseSerializer},
-        summary="Re-executa a análise de IA sobre o conteúdo do documento.",
+        summary="Re-executar análise de IA",
+        description="Re-executa a análise Gemini sobre o texto já extraído do documento. Útil após correções ou quando a análise inicial falhou.",
+        examples=[
+            OpenApiExample(
+                "Documento re-analisado",
+                value={"data": _DOCUMENT_EXAMPLE, "error": None},
+                response_only=True,
+                status_codes=["200"],
+            )
+        ],
     )
     @action(detail=True, methods=["post"], url_path="analyze")
     def analyze(self, request, pk=None):

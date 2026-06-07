@@ -1,7 +1,7 @@
 import logging
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiExample
 from core.response import api_response
 
 from .serializers import CompanySerializer
@@ -9,8 +9,46 @@ from .services import CompanyService
 
 logger = logging.getLogger(__name__)
 
+_COMPANY_EXAMPLE = {
+    "id": 1,
+    "name": "Acme Ltda",
+    "created_at": "2024-01-15T10:00:00Z",
+    "last_updated_at": "2024-01-15T10:00:00Z",
+}
+
+_COMPANY_REQUEST_EXAMPLE = OpenApiExample(
+    "Criar empresa",
+    value={"name": "Acme Ltda", "api_token": "seu-token-zapsign"},
+    request_only=True,
+)
+
+_COMPANY_RESPONSE_EXAMPLE = OpenApiExample(
+    "Empresa criada",
+    value={"data": _COMPANY_EXAMPLE, "error": None},
+    response_only=True,
+    status_codes=["200", "201"],
+)
+
 
 @extend_schema(tags=["Companies"])
+@extend_schema(
+    methods=["GET"],
+    summary="Listar empresas",
+    description="Retorna todas as empresas ativas do usuário autenticado, paginadas.",
+    examples=[
+        OpenApiExample(
+            "Lista de empresas",
+            value={"count": 1, "next": None, "previous": None, "results": [_COMPANY_EXAMPLE]},
+            response_only=True,
+        )
+    ],
+)
+@extend_schema(
+    methods=["POST"],
+    summary="Criar empresa",
+    description="Cadastra uma nova empresa vinculada ao usuário. O `api_token` é o token gerado na sua conta ZapSign (sandbox ou produção).",
+    examples=[_COMPANY_REQUEST_EXAMPLE, _COMPANY_RESPONSE_EXAMPLE],
+)
 class CompanyViewSet(viewsets.ModelViewSet):
     serializer_class = CompanySerializer
 

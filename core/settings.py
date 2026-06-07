@@ -32,6 +32,7 @@ THIRD_PARTY_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'drf_spectacular',
+    'corsheaders',
 ]
 
 LOCAL_APPS = [
@@ -44,6 +45,7 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -118,9 +120,59 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'ZapSign Document Manager API',
-    'DESCRIPTION': 'RESTful API for managing documents and signers with ZapSign integration and AI-powered content analysis.',
+    'DESCRIPTION': (
+        'API RESTful para gerenciamento de documentos e signatários com integração à plataforma ZapSign '
+        'e análise inteligente de conteúdo via Google Gemini AI.\n\n'
+        '**Autenticação:** todas as rotas (exceto `/auth/` e `/webhooks/`) exigem o header '
+        '`Authorization: Token <seu-token>`.\n\n'
+        '**Paginação:** listagens retornam 20 itens por página. Use `?page=2` para navegar.'
+    ),
     'VERSION': '1.0.0',
+    'TAGS': [
+        {
+            'name': 'Authentication',
+            'description': 'Cadastro e autenticação de usuários. Retorna o token necessário para acessar os demais endpoints.',
+        },
+        {
+            'name': 'Companies',
+            'description': 'Gerenciamento de empresas do usuário autenticado. Cada empresa armazena o `api_token` da ZapSign utilizado na criação de documentos.',
+        },
+        {
+            'name': 'Documents',
+            'description': (
+                'Gerenciamento completo de documentos. Ao criar um documento, o sistema automaticamente:\n'
+                '1. Extrai o texto do PDF informado\n'
+                '2. Envia o documento para assinatura na ZapSign\n'
+                '3. Executa análise de conteúdo com IA (resumo, insights e tópicos ausentes)\n\n'
+                'Use `POST /{id}/analyze/` para re-executar a análise de IA a qualquer momento.'
+            ),
+        },
+        {
+            'name': 'Signers',
+            'description': 'Gerenciamento de signatários vinculados a documentos. Filtros disponíveis: `?status=` e `?document=`.',
+        },
+        {
+            'name': 'Reports',
+            'description': 'Relatórios e métricas do usuário autenticado. Retorna totais de documentos e signatários agrupados por status.',
+        },
+        {
+            'name': 'Webhooks',
+            'description': (
+                'Endpoints chamados por sistemas externos. '
+                'O webhook da ZapSign atualiza automaticamente o status de documentos e signatários quando uma assinatura é concluída. '
+                'Configure `ZAPSIGN_WEBHOOK_SECRET` no `.env` para validar a autenticidade das requisições.'
+            ),
+        },
+    ],
 }
+
+_cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
+if _cors_origins:
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()]
+elif DEBUG:
+    CORS_ALLOWED_ORIGINS = ['http://localhost:4200', 'http://127.0.0.1:4200']
+else:
+    CORS_ALLOWED_ORIGINS = []
 
 ZAPSIGN_API_URL = os.getenv('ZAPSIGN_API_URL', 'https://sandbox.api.zapsign.com.br/api/v1')
 ZAPSIGN_WEBHOOK_SECRET = os.getenv('ZAPSIGN_WEBHOOK_SECRET')

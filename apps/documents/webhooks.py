@@ -1,6 +1,7 @@
 import logging
 
 from django.conf import settings
+from drf_spectacular.utils import extend_schema, OpenApiExample
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
@@ -26,6 +27,41 @@ class _ZapSignWebhookSerializer(serializers.Serializer):
 class ZapSignWebhookView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        tags=["Webhooks"],
+        summary="Callback da ZapSign",
+        description=(
+            "Recebe notificações da ZapSign quando o status de um documento ou signatário é alterado. "
+            "Não requer autenticação por token — a validação é feita via header `X-ZapSign-Secret` "
+            "quando `ZAPSIGN_WEBHOOK_SECRET` está configurado no ambiente."
+        ),
+        request=_ZapSignWebhookSerializer,
+        examples=[
+            OpenApiExample(
+                "Documento assinado por todos",
+                value={
+                    "token": "doc-token-abc123",
+                    "status": "signed",
+                    "signers": [
+                        {"token": "signer-token-xyz", "status": "signed", "sign_url": "https://sandbox.app.zapsign.com.br/verificar/xyz"}
+                    ],
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Sucesso",
+                value={"data": None, "error": None},
+                response_only=True,
+                status_codes=["200"],
+            ),
+            OpenApiExample(
+                "Secret inválido",
+                value={"data": None, "error": {"message": "Unauthorized", "code": "WEBHOOK_UNAUTHORIZED"}},
+                response_only=True,
+                status_codes=["401"],
+            ),
+        ],
+    )
     def post(self, request):
         if not self._is_authorized(request):
             return api_response(
