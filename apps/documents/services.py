@@ -35,9 +35,9 @@ class DocumentService:
 
             extracted_text = self._extract_pdf(url_pdf, document, company)
 
-            self._send_to_zapsign(document, signers_data, company)
+            zapsign_signers = self._send_to_zapsign(document, signers_data, company)
 
-            self._create_signers(document, signers_data)
+            self._create_signers(document, zapsign_signers or signers_data)
 
         # _extract_pdf e _analyze_ai são chamadas síncronas intencionalmente nesta versão.
         # Em produção com volume real, ambas devem ser movidas para tasks assíncronas
@@ -139,7 +139,7 @@ class DocumentService:
 
             return fallback
 
-    def _send_to_zapsign(self, document, signers_data, company):
+    def _send_to_zapsign(self, document, signers_data, company) -> list:
         try:
             client = ZapSignClient(api_token=company.api_token)
 
@@ -157,16 +157,26 @@ class DocumentService:
                 status=response["status"],
             )
 
+            return response.get("signers", [])
+
         except Exception:
             logger.exception("Erro ZapSign document_id=%s", document.id)
             raise
 
     def _create_signers(self, document, signers_data):
         for signer in signers_data:
+            email = signer.get("email", "")
+            if self.signer_repository.exists_for_document(document, email):
+                logger.info(
+                    "Signatário já existe, ignorando document_id=%s email=%s",
+                    document.id,
+                    email,
+                )
+                continue
             self.signer_repository.create_for_document(
                 document,
                 name=signer["name"],
-                email=signer["email"],
+                email=email,
                 token=signer.get("token"),
                 external_id=signer.get("external_id"),
                 status=signer.get("status", "pending"),

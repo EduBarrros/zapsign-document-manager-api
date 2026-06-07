@@ -44,9 +44,10 @@ class ZapSignClient:
             response.raise_for_status()
         except requests.RequestException:
             logger.error(
-                'Falha ao criar documento no ZapSign name=%s status=%s',
+                'Falha ao criar documento no ZapSign name=%s status=%s body=%s',
                 name,
                 response.status_code if response is not None else None,
+                response.text if response is not None else None,
                 exc_info=True,
             )
             raise

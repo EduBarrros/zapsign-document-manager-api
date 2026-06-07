@@ -26,6 +26,7 @@ class Document(models.Model):
     class Meta:
         verbose_name = 'Document'
         verbose_name_plural = 'Documents'
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.name

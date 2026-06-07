@@ -19,6 +19,7 @@ class Signer(models.Model):
     class Meta:
         verbose_name = 'Signer'
         verbose_name_plural = 'Signers'
+        ordering = ['id']
 
     def __str__(self):
         return f"{self.name} - {self.email}"
