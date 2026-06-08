@@ -117,6 +117,17 @@ class CompanyViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        company = self.get_object()
+        serializer = self.get_serializer(company, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        company = CompanyService().update_company(company, **serializer.validated_data)
+
+        logger.info("Empresa atualizada company_id=%s user_id=%s", company.id, request.user.id)
+        return api_response(data=CompanySerializer(company).data)
+
     def destroy(self, request, *args, **kwargs):
         company = self.get_object()
 
