@@ -16,4 +16,10 @@ class CompanyRepository:
  
     def create(self, **data):
         return Company.objects.create(**data)
+
+    def update(self, company, **data):
+        for field, value in data.items():
+            setattr(company, field, value)
+        company.save(update_fields=list(data.keys()))
+        return company
  

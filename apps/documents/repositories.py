@@ -68,6 +68,12 @@ class DocumentRepository:
         document.save(update_fields=["status"])
         return document
 
+    def update(self, document: Document, **data) -> Document:
+        for field, value in data.items():
+            setattr(document, field, value)
+        document.save(update_fields=list(data.keys()))
+        return document
+
     def soft_delete(self, document: Document) -> Document:
         document.deleted_at = timezone.now()
         document.save(update_fields=["deleted_at"])

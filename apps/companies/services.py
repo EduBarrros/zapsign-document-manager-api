@@ -10,5 +10,8 @@ class CompanyService:
     def create_company(self, user, **data):
         return self.repository.create(user=user, **data)
 
+    def update_company(self, company, **data):
+        return self.repository.update(company, **data)
+
     def soft_delete(self, company):
         return self.repository.soft_delete(company)

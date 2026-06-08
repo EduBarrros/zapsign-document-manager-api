@@ -4,12 +4,11 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
+from core.exceptions import NotFoundException, ConflictException
 from core.response import api_response
-from .models import Signer
 from .serializers import SignerRequestSerializer, SignerUpdateSerializer, SignerResponseSerializer
 from .services import SignerService
 from .repositories import SignerRepository
-from apps.documents.repositories import DocumentRepository
 
 logger = logging.getLogger(__name__)
 
@@ -110,10 +109,10 @@ _SIGNER_EXAMPLE = {
 class SignerViewSet(viewsets.ModelViewSet):
     serializer_class = SignerResponseSerializer
 
-    def __init__(self, *args, signer_repository=None, document_repository=None, **kwargs):
+    def __init__(self, *args, signer_service=None, signer_repository=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.signer_service = signer_service or SignerService()
         self.signer_repository = signer_repository or SignerRepository()
-        self.document_repository = document_repository or DocumentRepository()
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -124,10 +123,10 @@ class SignerViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = self.signer_repository.get_active_for_user(self.request.user)
-        status = self.request.query_params.get('status')
+        status_filter = self.request.query_params.get('status')
         document_id = self.request.query_params.get('document')
-        if status:
-            qs = qs.filter(status=status)
+        if status_filter:
+            qs = qs.filter(status=status_filter)
         if document_id:
             qs = qs.filter(document_id=document_id)
         return qs
@@ -136,66 +135,34 @@ class SignerViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        document_id = serializer.validated_data['document']
-        document_qs = self.document_repository.get_active_for_user(request.user).filter(id=document_id)
-        if not document_qs.exists():
-            return api_response(
-                error='Documento não encontrado ou sem permissão',
-                error_code='DOCUMENT_NOT_FOUND',
-                status=status.HTTP_404_NOT_FOUND,
+        try:
+            signer = self.signer_service.create_signer(
+                user=request.user,
+                document_id=serializer.validated_data['document'],
+                name=serializer.validated_data['name'],
+                email=serializer.validated_data['email'],
             )
+        except NotFoundException as exc:
+            return api_response(error=str(exc), error_code='DOCUMENT_NOT_FOUND', status=status.HTTP_404_NOT_FOUND)
+        except ConflictException as exc:
+            return api_response(error=str(exc), error_code='SIGNER_ALREADY_EXISTS', status=status.HTTP_409_CONFLICT)
 
-        document = document_qs.first()
-        email = serializer.validated_data['email']
-
-        if self.signer_repository.exists_for_document(document, email):
-            return api_response(
-                error='Já existe um signatário com este email neste documento',
-                error_code='SIGNER_ALREADY_EXISTS',
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        signer = Signer.objects.create(
-            name=serializer.validated_data['name'],
-            email=email,
-            document=document,
-        )
-
-        logger.info(
-            'Signatário criado signer_id=%s document_id=%s user_id=%s',
-            signer.id,
-            document.id,
-            request.user.id,
-        )
-
-        return api_response(
-            data=SignerResponseSerializer(signer).data,
-            status=status.HTTP_201_CREATED,
-        )
+        logger.info('Signatário criado signer_id=%s document_id=%s user_id=%s', signer.id, signer.document_id, request.user.id)
+        return api_response(data=SignerResponseSerializer(signer).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         signer = self.get_object()
         serializer = self.get_serializer(signer, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
 
-        logger.info(
-            'Signatário atualizado signer_id=%s document_id=%s user_id=%s',
-            signer.id,
-            signer.document_id,
-            request.user.id,
-        )
+        signer = self.signer_service.update_signer(signer, **serializer.validated_data)
 
+        logger.info('Signatário atualizado signer_id=%s document_id=%s user_id=%s', signer.id, signer.document_id, request.user.id)
         return api_response(data=SignerResponseSerializer(signer).data)
 
     def destroy(self, request, *args, **kwargs):
         signer = self.get_object()
-        logger.info(
-            'Soft delete de signatário signer_id=%s document_id=%s user_id=%s',
-            signer.id,
-            signer.document_id,
-            request.user.id,
-        )
-        SignerService().soft_delete(signer)
+        logger.info('Soft delete de signatário signer_id=%s document_id=%s user_id=%s', signer.id, signer.document_id, request.user.id)
+        self.signer_service.soft_delete(signer)
         return Response(status=status.HTTP_204_NO_CONTENT)
