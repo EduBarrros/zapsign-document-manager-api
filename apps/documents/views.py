@@ -227,14 +227,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
         document = self.get_object()
         serializer = self.get_serializer(document, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
 
-        logger.info(
-            'Documento atualizado document_id=%s user_id=%s',
-            document.id,
-            request.user.id,
-        )
+        document = DocumentService().update_document(document, **serializer.validated_data)
 
+        logger.info('Documento atualizado document_id=%s user_id=%s', document.id, request.user.id)
         return api_response(data=DocumentResponseSerializer(document).data)
 
     def destroy(self, request, *args, **kwargs):

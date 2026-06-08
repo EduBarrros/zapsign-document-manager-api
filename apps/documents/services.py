@@ -97,6 +97,9 @@ class DocumentService:
         )
         return document
 
+    def update_document(self, document: Document, **data) -> Document:
+        return self.document_repository.update(document, **data)
+
     def delete_document(self, document: Document) -> None:
         self.document_repository.soft_delete(document)
 

@@ -22,6 +22,10 @@ class NotFoundException(DomainException):
     pass
 
 
+class ConflictException(DomainException):
+    pass
+
+
 class IntegrationException(DomainException):
     pass
 
